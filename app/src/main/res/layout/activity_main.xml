@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:context=".app.MainActivity">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="700dp"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp">
+
+        <TextView
+            android:id="@+id/textViewDeviceBluetoothState"
+            tools:text="端末のBluetooth状態: ON"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/textViewOperationStep"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:gravity="center"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/textViewOperationStep"
+            tools:text="BLE処理段階: スキャン中"
+            app:layout_constraintTop_toBottomOf="@id/textViewDeviceBluetoothState"
+            app:layout_constraintBottom_toTopOf="@id/buttonSendCommandConnectionTest"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:gravity="center"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+
+        <Button
+            app:layout_constraintTop_toBottomOf="@id/textViewOperationStep"
+            app:layout_constraintBottom_toTopOf="@id/buttonSendCommandRegisterRead"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:text="導通テスト"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/buttonSendCommandConnectionTest" />
+
+        <Button
+            app:layout_constraintTop_toBottomOf="@id/buttonSendCommandConnectionTest"
+            app:layout_constraintBottom_toTopOf="@id/buttonSendCommandRegisterWrite"
+            app:layout_constraintStart_toStartOf="@id/buttonSendCommandConnectionTest"
+            app:layout_constraintEnd_toEndOf="@id/buttonSendCommandConnectionTest"
+            android:text="レジスタ値アクセス.取得"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/buttonSendCommandRegisterRead" />
+
+        <Button
+            app:layout_constraintTop_toBottomOf="@id/buttonSendCommandRegisterRead"
+            app:layout_constraintBottom_toTopOf="@id/buttonSendCommandVersionRead"
+            app:layout_constraintStart_toStartOf="@id/buttonSendCommandConnectionTest"
+            app:layout_constraintEnd_toEndOf="@id/buttonSendCommandConnectionTest"
+            android:text="レジスタ値アクセス.設定"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/buttonSendCommandRegisterWrite" />
+
+        <Button
+            app:layout_constraintTop_toBottomOf="@id/buttonSendCommandRegisterWrite"
+            app:layout_constraintBottom_toTopOf="@id/buttonSendCommandSensorSampling"
+            app:layout_constraintStart_toStartOf="@id/buttonSendCommandConnectionTest"
+            app:layout_constraintEnd_toEndOf="@id/buttonSendCommandConnectionTest"
+            android:text="ホストマイコンバージョン確認"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/buttonSendCommandVersionRead" />
+
+        <Button
+            app:layout_constraintTop_toBottomOf="@id/buttonSendCommandVersionRead"
+            app:layout_constraintBottom_toTopOf="@id/buttonSendCommandDeviceNameRead"
+            app:layout_constraintStart_toStartOf="@id/buttonSendCommandConnectionTest"
+            app:layout_constraintEnd_toEndOf="@id/buttonSendCommandConnectionTest"
+            android:text="センササンプリング実行要求"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/buttonSendCommandSensorSampling" />
+
+        <Button
+            app:layout_constraintTop_toBottomOf="@id/buttonSendCommandSensorSampling"
+            app:layout_constraintBottom_toTopOf="@id/buttonSendCommandDeviceNameWrite"
+            app:layout_constraintStart_toStartOf="@id/buttonSendCommandConnectionTest"
+            app:layout_constraintEnd_toEndOf="@id/buttonSendCommandConnectionTest"
+            android:text="デバイス名.取得"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/buttonSendCommandDeviceNameRead" />
+
+        <Button
+            app:layout_constraintTop_toBottomOf="@id/buttonSendCommandDeviceNameRead"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="@id/buttonSendCommandConnectionTest"
+            app:layout_constraintEnd_toEndOf="@id/buttonSendCommandConnectionTest"
+            android:text="デバイス名.設定"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/buttonSendCommandDeviceNameWrite" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>
