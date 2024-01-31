@@ -1,56 +1,56 @@
 package com.musenconnect.linble.sample.wirelessuart.android.app
 
-import android.app.Activity
+import android.app.Application
 import android.util.Log
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
-import com.musenconnect.linble.sample.wirelessuart.android.common.DebugLogger
-import com.musenconnect.linble.sample.wirelessuart.android.common.OperationStep
-import com.musenconnect.linble.sample.wirelessuart.android.common.UartDataParserCallback
-import com.musenconnect.linble.sample.wirelessuart.android.common.WirelessUartController
-import com.musenconnect.linble.sample.wirelessuart.android.common.blecontrol.DeviceBluetoothState
-import com.musenconnect.linble.sample.wirelessuart.android.common.uart.command.UartCommand
-import com.musenconnect.linble.sample.wirelessuart.android.concrete.ConcreteBluetoothCentralController
-import com.musenconnect.linble.sample.wirelessuart.android.concrete.ConcreteLinble
+import androidx.activity.ComponentActivity
+import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.AndroidViewModel
+import com.musenconnect.linble.sample.wirelessuart.android.model.DebugLogger
+import com.musenconnect.linble.sample.wirelessuart.android.model.OperationStep
+import com.musenconnect.linble.sample.wirelessuart.android.model.UartDataParserCallback
+import com.musenconnect.linble.sample.wirelessuart.android.model.WirelessUartController
+import com.musenconnect.linble.sample.wirelessuart.android.model.blecontrol.BluetoothCentralController
+import com.musenconnect.linble.sample.wirelessuart.android.model.blecontrol.DeviceBluetoothState
+import com.musenconnect.linble.sample.wirelessuart.android.model.uart.command.UartCommand
 
-typealias ConsumedThisEvent = Boolean
+class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
+    private val debugLogger =
+        object : DebugLogger {
+            override fun logd(tag: String, message: String) {
+                Log.d(tag, message)
+            }
 
-class MainActivityViewModel : ViewModel() {
-    private val debugLogger = object : DebugLogger {
-        override fun logd(tag: String, message: String) {
-            Log.d(tag, message)
+            override fun logw(tag: String, message: String) {
+                Log.w(tag, message)
+            }
+
+            override fun loge(tag: String, message: String) {
+                Log.e(tag, message)
+            }
         }
 
-        override fun logw(tag: String, message: String) {
-            Log.w(tag, message)
+    private val bluetoothCentralController =
+        BluetoothCentralController(application, debugLogger)
+
+    private val wirelessUartController: WirelessUartController =
+        WirelessUartController(bluetoothCentralController, debugLogger).also {
+            it.onChangeOperationStep = { operationStep ->
+                operationStepState.value = operationStep
+            }
+
+            it.onChangeDeviceBluetoothState = { deviceBluetoothState ->
+                this.deviceBluetoothState.value = deviceBluetoothState
+            }
         }
 
-        override fun loge(tag: String, message: String) {
-            Log.e(tag, message)
-        }
-    }
+    val deviceBluetoothState =
+        mutableStateOf<DeviceBluetoothState>(
+            bluetoothCentralController.currentDeviceBluetoothState
+        )
 
-    private val runtimePermissionHandler = RuntimePermissionHandler()
+    val operationStepState = mutableStateOf<OperationStep>(wirelessUartController.operationStep)
 
-    private val bluetoothCentralController = ConcreteBluetoothCentralController(debugLogger) { gatt, bridger ->
-        ConcreteLinble(gatt, bridger, debugLogger)
-    }
-
-    private val wirelessUartController: WirelessUartController = WirelessUartController(bluetoothCentralController, debugLogger).also {
-        it.onChangeOperationStep = { operationStep ->
-            liveDataOperationStep.postValue(operationStep)
-        }
-
-        it.onChangeDeviceBluetoothState = { deviceBluetoothState ->
-            liveDataDeviceBluetoothState.postValue(deviceBluetoothState)
-        }
-    }
-
-    val liveDataDeviceBluetoothState = MutableLiveData<DeviceBluetoothState>(bluetoothCentralController.currentDeviceBluetoothState)
-
-    val liveDataOperationStep = MutableLiveData<OperationStep>(wirelessUartController.operationStep)
-
-    fun onStart(activity: Activity) {
+    fun onCreate(activity: ComponentActivity) {
         val applicationContext = activity.applicationContext
 
         bluetoothCentralController.provideApplicationContext = {
@@ -66,17 +66,9 @@ class MainActivityViewModel : ViewModel() {
 
             applicationContext
         }
-
-        runtimePermissionHandler.check(activity, ifGrantedRuntimePermission)
     }
 
-    fun onRequestPermissionsResult(activity: Activity, requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        runtimePermissionHandler.onRequestPermissionsResult(activity, requestCode, permissions, grantResults, ifGrantedRuntimePermission)
-    }
-
-    private val ifGrantedRuntimePermission = {
-        wirelessUartController.start()
-    }
+    val ifGrantedRuntimePermission = { wirelessUartController.start() }
 
     val targetLinbleAddress: String
         get() = wirelessUartController.targetLinbleAddress
@@ -98,7 +90,6 @@ class MainActivityViewModel : ViewModel() {
 
         wirelessUartController.uartDataParserCallback = null
         bluetoothCentralController.provideApplicationContext = null
-        runtimePermissionHandler.clearExplainDialog()
 
         /*
         Activityは画面回転時にも発生するため、
