@@ -237,34 +237,34 @@ class BluetoothCentralController(
         }
 
         /*
-        Android8.1で `BluetoothLeScanner.startScan()` に `List<ScanFilter>` を渡さなかった場合、
-        省電力設計のために、画面をオフにするとスキャンが止まるようになります。
-
-        これを防ぐには「何もフィルタリングしないScanFilter」を設定します。
+        ここでは空のScanFilterリストを渡しています。
+        ScanFilterが指定されていない場合は、省電力設計のために、画面オフにするとスキャンが止まるようになっています。
         */
-        val scanFiltersToPreventScreenOffScanBlocking = listOf(ScanFilter.Builder().build())
+        val emptyScanFilters = emptyList<ScanFilter>()
 
         /*
         `SCAN_MODE_LOW_LATENCY` は端末の電池消費量が大きくなりますが、最速でアドバタイズを発見することができます。
-        反対に、 `SCAN_MODE_LOW_POWER` は電池消費量が抑えられますが、アドバタイズ発見間隔が長くなります。
+        反対に、`SCAN_MODE_LOW_POWER` は電池消費量が抑えられますが、アドバタイズ発見間隔が長くなります。
          */
         val scanSettings =
             ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
 
 
         bluetoothLeScanner.startScan(
-            scanFiltersToPreventScreenOffScanBlocking,
+            emptyScanFilters,
             scanSettings,
             bluetoothFrameworkScanCallback
         )
 
         /*
         TODO: 再スキャンの実装
-        Androidでは30分間BLEスキャンを継続すると、自動的にそのスキャン処理は `SCAN_MODE_OPPORTUNISTIC` に格下げされます。
+        Androidでは一定時間BLEスキャンを継続すると、自動的にそのスキャン処理は `SCAN_MODE_OPPORTUNISTIC` に格下げされます。
         この場合、他のアプリがスキャンを行ったときに連動してスキャン通知が上がるようになります。
 
-        30分に到達する前に一旦スキャンを停止し、すぐに再度スキャンを開始することで、
-        Android OS側の30分計測タイマーをリセットすることができます。
+        Android13までは30分、Android14からは10分で日和見スキャンモードへ移行します。
+
+        時間に到達する前に一旦スキャンを停止し、すぐに再度スキャンを開始することで、
+        Android OS側の計測タイマーをリセットすることができます。
         */
     }
 
@@ -575,13 +575,14 @@ class BluetoothCentralController(
         val succeeded =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val status = gatt.writeCharacteristic(
-                    dataToPeripheral, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                    dataToPeripheral, data, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
                 )
                 debugLogger.logw(logTag, "writeCharacteristic: status=$status")
 
                 status == BluetoothGatt.GATT_SUCCESS
             } else {
                 dataToPeripheral.value = data
+                dataToPeripheral.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
 
                 val result = gatt.writeCharacteristic(dataToPeripheral)
                 debugLogger.logw(logTag, "writeCharacteristic: result=$result")
