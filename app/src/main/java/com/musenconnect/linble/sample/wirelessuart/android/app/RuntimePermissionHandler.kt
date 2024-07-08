@@ -11,7 +11,7 @@ import androidx.core.app.ActivityCompat
 
 class RuntimePermissionHandler(
     private val activity: ComponentActivity,
-    private val ifGranted: () -> Unit
+    private val onGranted: () -> Unit
 ) {
     companion object {
         // Bluetoothを使うために必要なPermissionはAndroid12以降かそれ未満かで変わります。
@@ -26,25 +26,20 @@ class RuntimePermissionHandler(
             }
     }
 
-    val grantedAlreadyRuntimePermission =
-        mutableStateOf<Boolean>(false)
+    val granted = mutableStateOf<Boolean>(false)
 
     fun check() {
-        /*
-        AndroidでBluetoothを利用したアプリを動作させる場合、
-        事前に位置情報に関するRuntime Permissionを獲得する必要があります。
-         */
-
+        // AndroidでBluetoothを利用したアプリを動作させる場合、
+        // 事前に位置情報に関するRuntime Permissionを獲得する必要があります。
         val grantedAlready = permissionsToUseBluetooth.all { permission ->
             ActivityCompat.checkSelfPermission(
-                activity,
-                permission
+                activity, permission
             ) == PackageManager.PERMISSION_GRANTED
         }
-        grantedAlreadyRuntimePermission.value = grantedAlready
+        granted.value = grantedAlready
 
         if (grantedAlready) {
-            ifGranted()
+            onGranted()
         }
     }
 
@@ -55,28 +50,24 @@ class RuntimePermissionHandler(
             }
 
             if (granted) {
-                grantedAlreadyRuntimePermission.value = true
-                ifGranted()
+                this.granted.value = true
+                onGranted()
             } else {
-                grantedAlreadyRuntimePermission.value = false
+                this.granted.value = false
 
-                /*
-                「今後表示しない」にチェックされて許可されなかった場合、
-                アプリはRuntime Permissionを再度ユーザーに要求することができなくなります。
-
-                この状態になっているかは
-                `ActivityCompat.shouldShowRequestPermissionRationale()`
-                の返り値で判断できます。
-                */
-
+                // 「今後表示しない」にチェックされて許可されなかった場合、
+                // アプリはRuntime Permissionを再度ユーザーに要求することができなくなります。
+                //
+                // この状態になっているかは
+                // `ActivityCompat.shouldShowRequestPermissionRationale()`
+                // の返り値で判断できます。
                 val canRetry = permissionsToUseBluetooth.all { permission ->
                     ActivityCompat.shouldShowRequestPermissionRationale(
-                        activity,
-                        permission
+                        activity, permission
                     )
                 }
                 if (canRetry) {
-                    requestRuntimePermissionToUseBluetooth()
+                    request()
                 } else {
                     // この場合、Runtime Permissionに関するメッセージが表示できないので、
                     // Androidの設定アプリから直接位置情報の利用権限を修正してもらう必要があります。
@@ -94,9 +85,7 @@ class RuntimePermissionHandler(
             }
         }
 
-    fun requestRuntimePermissionToUseBluetooth() {
-        launcher.launch(
-            permissionsToUseBluetooth
-        )
+    fun request() {
+        launcher.launch(permissionsToUseBluetooth)
     }
 }

@@ -88,30 +88,27 @@ class UartDataParserTest : UartDataParserCallback {
 
     @Test
     fun `parse_センササンプリング実行要求_イベント`() {
-        /*
-        ```
-        <length>84<state>[<value>]
-        ```
-
-        |パラメータ|サイズ|説明|
-        |:---|:---:|:---|
-        |`<state>`|1|サンプリング継続状態。`1`または`0`。`1`の場合、後続に`<value>`が出現する。|
-        |`<value>`|4|取得したセンサ値のIEEE754単精度(float)表現の値。例：`42009062` (`32.141`)|
-
-        **例:**
-
-        ```
-        Tx | 020405
-        Rx | 0144
-        Rx | 06840142F7D2F1 // 123.91199493408203125
-        Rx | 06840142F85062 // 124.1569976806640625
-        Rx | 06840142F82C8B // 124.08699798583984375
-        Rx | 06840142F7FBE7 // 123.99199676513671875
-        Rx | 06840142F7C51E // 123.8849945068359375
-        Rx | 028400
-        ```
-
-         */
+        // ```
+        // <length>84<state>[<value>]
+        // ```
+        //
+        // |パラメータ|サイズ|説明|
+        // |:---|:---:|:---|
+        // |`<state>`|1|サンプリング継続状態。`1`または`0`。`1`の場合、後続に`<value>`が出現する。|
+        // |`<value>`|4|取得したセンサ値のIEEE754単精度(float)表現の値。例：`42009062` (`32.141`)|
+        //
+        // **例:**
+        //
+        // ```
+        // Tx | 020405
+        // Rx | 0144
+        // Rx | 06840142F7D2F1 // 123.911995
+        // Rx | 06840142F85062 // 124.157000
+        // Rx | 06840142F82C8B // 124.087000
+        // Rx | 06840142F7FBE7 // 123.992000
+        // Rx | 06840142F7C51E // 123.884995
+        // Rx | 028400
+        // ```
         run {
             uartDataParser.parse("06840142F7D2F1".asHexStringToByteArray())
 
@@ -120,7 +117,7 @@ class UartDataParserTest : UartDataParserCallback {
             if (parsedPacket !is UartEventSensorSampling) throw AssertionError()
 
             assertEquals(SamplingState.Sampling, parsedPacket.state)
-            assertEquals(123.91199493408203125f, parsedPacket.value!!, 0.000001f)
+            assertEquals(123.911995f, parsedPacket.value!!, 0.000001f)
         }
 
         run {
@@ -191,5 +188,4 @@ class UartDataParserTest : UartDataParserCallback {
 
         assertEquals("Sample-UartController-001", parsedPacket.name.value)
     }
-
 }

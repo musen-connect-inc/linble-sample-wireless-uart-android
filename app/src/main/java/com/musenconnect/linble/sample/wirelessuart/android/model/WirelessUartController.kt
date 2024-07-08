@@ -11,17 +11,25 @@ import java.util.Locale
 
 class WirelessUartController(
     private val bluetoothCentralController: BluetoothCentralController,
-    private val debugLogger: DebugLogger
+    private val debugLogger: DebugLogger,
+    private val onChangeOperationStep: (OperationStep) -> Unit,
+    private val onChangeDeviceBluetoothState: (DeviceBluetoothState) -> Unit,
+    private val onParse: (UartRxPacket) -> Unit,
 ) {
     companion object {
-        val defaultTargetLinbleAddress: String =
+        val targetLinbleAddress: String =
             "FFFFFFFFFFFF" // `BTM` コマンドで確認できるBDアドレス文字列をここに貼り付けてください。
                 .insertColons()
     }
 
-    val targetLinbleAddress = defaultTargetLinbleAddress
+    var operationStep: OperationStep = OperationStep.Initializing
+        private set(value) {
+            field = value
 
-    var onChangeDeviceBluetoothState: ((DeviceBluetoothState) -> Unit)? = null
+            debugLogger.logd(this@WirelessUartController.logTag, "onChangeOperationStep: $value")
+
+            onChangeOperationStep.invoke(value)
+        }
 
     fun start() {
         debugLogger.logd(this@WirelessUartController.logTag, "start:")
@@ -34,11 +42,11 @@ class WirelessUartController(
     private val deviceBluetoothStateMonitoringCallback =
         object : BluetoothCentralController.DeviceBluetoothStateMonitoringCallback {
             override fun onChange(deviceBluetoothState: DeviceBluetoothState) {
-                onChangeDeviceBluetoothState?.invoke(deviceBluetoothState)
+                onChangeDeviceBluetoothState.invoke(deviceBluetoothState)
 
                 when (deviceBluetoothState) {
                     DeviceBluetoothState.PoweredOn -> {
-                        startScan()
+                        startScan(toReconnect = false)
                     }
 
                     else -> {
@@ -48,7 +56,7 @@ class WirelessUartController(
             }
         }
 
-    private fun startScan(toReconnect: Boolean = false) {
+    private fun startScan(toReconnect: Boolean) {
         debugLogger.logd(this@WirelessUartController.logTag, "startScan: toReconnect=$toReconnect")
 
         if (toReconnect) {
@@ -117,17 +125,11 @@ class WirelessUartController(
             }
         }
 
-    private val innerUartDataParserCallback = object : UartDataParserCallback {
+    private val uartDataParser = UartDataParser(object : UartDataParserCallback {
         override fun onParse(rxPacket: UartRxPacket) {
-            debugLogger.logd(this@WirelessUartController.logTag, "onParse: $rxPacket")
-
-            uartDataParserCallback?.onParse(rxPacket)
+            onParse.invoke(rxPacket)
         }
-    }
-
-    var uartDataParserCallback: UartDataParserCallback? = null
-
-    private val uartDataParser = UartDataParser(innerUartDataParserCallback, debugLogger)
+    }, debugLogger)
 
     private var txPacketDivider: TxPacketDivider? = null
 
@@ -182,17 +184,6 @@ class WirelessUartController(
         bluetoothCentralController.cancelScan()
         bluetoothCentralController.cancelConnection()
     }
-
-    var onChangeOperationStep: ((OperationStep) -> Unit)? = null
-
-    var operationStep: OperationStep = OperationStep.Initializing
-        private set(value) {
-            field = value
-
-            debugLogger.logd(this@WirelessUartController.logTag, "onChangeOperationStep: $value")
-
-            onChangeOperationStep?.invoke(value)
-        }
 }
 
 private fun String.insertColons(): String {

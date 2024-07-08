@@ -30,22 +30,17 @@ import java.util.TimerTask
 import kotlin.concurrent.schedule
 
 
-typealias ProvideApplicationContext = () -> Context
-
-
 @SuppressLint("MissingPermission")
 class BluetoothCentralController(
-    app: Application,
+    private val application: Application,
     private val debugLogger: DebugLogger,
 ) {
-    var provideApplicationContext: ProvideApplicationContext? = null
-
     private val bluetoothManager =
-        requireNotNull(app.getSystemService(BluetoothManager::class.java))
+        requireNotNull(application.getSystemService(BluetoothManager::class.java))
     private val bluetoothAdapter = requireNotNull(bluetoothManager.adapter)
 
     companion object {
-        const val operationTimeoutMillis: Long = 5000
+        const val OPERATION_TIMEOUT_MILLIS: Long = 5000
     }
 
     private var linbleSetupTimeoutDetector: TimerTask? = null
@@ -89,26 +84,19 @@ class BluetoothCentralController(
             return
         }
 
-        /*
-        Androidでの端末のBluetooth状態監視には `BroadcastReceiver` を用います。
-
-        `IntentFilter` には、
-        端末のBluetooth状態監視用に `BluetoothAdapter.ACTION_STATE_CHANGED` 、
-        位置情報機能の監視用に `LocationManager.PROVIDERS_CHANGED_ACTION` を取り扱わせます。
-         */
-
-        val provideApplicationContext = this.provideApplicationContext ?: return
-
-        val applicationContext = provideApplicationContext()
-
-        applicationContext.registerReceiver(bluetoothStateBroadcastReceiver, IntentFilter().also {
+        // Androidでの端末のBluetooth状態監視には `BroadcastReceiver` を用います。
+        //
+        // `IntentFilter` には、
+        // 端末のBluetooth状態監視用に `BluetoothAdapter.ACTION_STATE_CHANGED` 、
+        // 位置情報機能の監視用に `LocationManager.PROVIDERS_CHANGED_ACTION` を取り扱わせます。
+        application.registerReceiver(bluetoothStateBroadcastReceiver, IntentFilter().also {
             it.addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
             it.addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
         })
 
         deviceBluetoothStateMonitoringCallback = callback
 
-        updateCurrentDeviceBluetoothState(applicationContext)
+        updateCurrentDeviceBluetoothState(application)
     }
 
     private val bluetoothStateBroadcastReceiver = object : BroadcastReceiver() {
@@ -119,10 +107,8 @@ class BluetoothCentralController(
                 return
             }
 
-            /*
-            `BluetoothAdapter.ACTION_STATE_CHANGED` または `LocationManager.PROVIDERS_CHANGED_ACTION` が発生したら、
-            現在の状態を確認し直して更新します。
-            */
+            // `BluetoothAdapter.ACTION_STATE_CHANGED` または `LocationManager.PROVIDERS_CHANGED_ACTION` が発生したら、
+            // 現在の状態を確認し直して更新します。
             updateCurrentDeviceBluetoothState(localContext)
         }
     }
@@ -134,11 +120,9 @@ class BluetoothCentralController(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 DeviceBluetoothState.PoweredOn
             } else {
-                /*
-                Android12以前では、位置情報機能が有効になっているかもBLEスキャンの利用可否に繋がります。
-
-                `LocationManager.NETWORK_PROVIDER` が有効になっていれば、BLEスキャンを利用可能と見なすことができます。
-                */
+                // Android12以前では、位置情報機能が有効になっているかもBLEスキャンの利用可否に繋がります。
+                //
+                // `LocationManager.NETWORK_PROVIDER` が有効になっていれば、BLEスキャンを利用可能と見なすことができます。
                 val locationManager = context.getSystemService(LocationManager::class.java)
                 if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                     DeviceBluetoothState.PoweredOn
@@ -152,11 +136,7 @@ class BluetoothCentralController(
     }
 
     fun stopDeviceBluetoothStateMonitoring() {
-        val provideApplicationContext = this.provideApplicationContext ?: return
-
-        val applicationContext = provideApplicationContext()
-
-        applicationContext.unregisterReceiver(bluetoothStateBroadcastReceiver)
+        application.unregisterReceiver(bluetoothStateBroadcastReceiver)
 
         deviceBluetoothStateMonitoringCallback = null
     }
@@ -218,14 +198,12 @@ class BluetoothCentralController(
 
                 val deviceAddress = result?.device?.address ?: return
 
-                /*
-                コード簡略化のためここでは `BluetoothDevice.getName()` を利用してデバイス名を取得していますが、
-                これはOSが認識しているデバイス名のキャッシュ情報であるため、
-                実際にLINBLE側がリアルタイムで発信している名前と異なる可能性があります。
-
-                LINBLEの名前を頻繁に変える使い方を想定している場合、
-                `result.scanRecord.bytes` を自前で解析した方が安全です。
-                */
+                // コード簡略化のためここでは `BluetoothDevice.getName()` を利用してデバイス名を取得していますが、
+                // これはOSが認識しているデバイス名のキャッシュ情報であるため、
+                // 実際にLINBLE側がリアルタイムで発信している名前と異なる可能性があります。
+                //
+                // LINBLEの名前を頻繁に変える使い方を想定している場合、
+                // `result.scanRecord.bytes` を自前で解析した方が安全です。
                 val deviceName = result.device?.name
 
                 val advertisement = Advertisement(deviceName, deviceAddress)
@@ -236,16 +214,12 @@ class BluetoothCentralController(
             bluetoothFrameworkScanCallback = it
         }
 
-        /*
-        ここでは空のScanFilterリストを渡しています。
-        ScanFilterが指定されていない場合は、省電力設計のために、画面オフにするとスキャンが止まるようになっています。
-        */
+        // ここでは空のScanFilterリストを渡しています。
+        // ScanFilterが指定されていない場合は、省電力設計のために、画面オフにするとスキャンが止まるようになっています。
         val emptyScanFilters = emptyList<ScanFilter>()
 
-        /*
-        `SCAN_MODE_LOW_LATENCY` は端末の電池消費量が大きくなりますが、最速でアドバタイズを発見することができます。
-        反対に、`SCAN_MODE_LOW_POWER` は電池消費量が抑えられますが、アドバタイズ発見間隔が長くなります。
-         */
+        // `SCAN_MODE_LOW_LATENCY` は端末の電池消費量が大きくなりますが、最速でアドバタイズを発見することができます。
+        // 反対に、`SCAN_MODE_LOW_POWER` は電池消費量が抑えられますが、アドバタイズ発見間隔が長くなります。
         val scanSettings =
             ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
 
@@ -256,16 +230,14 @@ class BluetoothCentralController(
             bluetoothFrameworkScanCallback
         )
 
-        /*
-        TODO: 再スキャンの実装
-        Androidでは一定時間BLEスキャンを継続すると、自動的にそのスキャン処理は `SCAN_MODE_OPPORTUNISTIC` に格下げされます。
-        この場合、他のアプリがスキャンを行ったときに連動してスキャン通知が上がるようになります。
-
-        Android13までは30分、Android14からは10分で日和見スキャンモードへ移行します。
-
-        時間に到達する前に一旦スキャンを停止し、すぐに再度スキャンを開始することで、
-        Android OS側の計測タイマーをリセットすることができます。
-        */
+        // TODO: 再スキャンの実装
+        // Androidでは一定時間BLEスキャンを継続すると、自動的にそのスキャン処理は `SCAN_MODE_OPPORTUNISTIC` に格下げされます。
+        // この場合、他のアプリがスキャンを行ったときに連動してスキャン通知が上がるようになります。
+        //
+        // Android13までは30分、Android14からは10分で日和見スキャンモードへ移行します。
+        //
+        // 時間に到達する前に一旦スキャンを停止し、すぐに再度スキャンを開始することで、
+        // Android OS側の計測タイマーをリセットすることができます。
     }
 
     fun cancelScan() {
@@ -327,18 +299,9 @@ class BluetoothCentralController(
 
         debugLogger.logd(logTag, "connect: target=$target")
 
-        val provideApplicationContext = this.provideApplicationContext ?: run {
-            linbleSetupCallback?.onError(IllegalStateException())
-            return
-        }
-
-        val applicationContext = provideApplicationContext()
-
-        /*
-        第2引数 `autoConnect` をtrueにした場合、
-        AndroidのBluetooth機能が対象との接続を何度も試みるようになります。
-        ただし、接続性能が不安定になったり、アプリ上での制御が把握しづらくなるため、利用は非推奨です。
-         */
+        // 第2引数 `autoConnect` をtrueにした場合、
+        // AndroidのBluetooth機能が対象との接続を何度も試みるようになります。
+        // ただし、接続性能が不安定になったり、アプリ上での制御が把握しづらくなるため、利用は非推奨です。
         val autoConnect = false
 
         val bluetoothGattCallback = object : BluetoothGattCallback() {
@@ -480,7 +443,7 @@ class BluetoothCentralController(
             retryConnection(target)
         }
 
-        bluetoothGatt = target.connectGatt(applicationContext, autoConnect, bluetoothGattCallback)
+        bluetoothGatt = target.connectGatt(application, autoConnect, bluetoothGattCallback)
     }
 
     private fun enableNotification() {
@@ -503,28 +466,22 @@ class BluetoothCentralController(
 
         // AndroidでNotificationEnable操作をするためには、以下の2手順を行う必要があります。
 
-        /*
-        1. `BluetoothGatt.setCharacteristicNotification()` による、AndroidOSへのNotification受信イベント通知の許可
-
-        対象キャラクタリスティックからNotificationが届いた場合、
-        このアプリの `BluetoothGattCallback` にもNotification受信イベントを届けるよう、AndroidOSへ指示するための操作です。
-
-        この操作はBLEフレームワーク内のフラグ制御のためにあるもので、これによるLINBLEとの通信はまだ発生しません。
-         */
+        // 1. `BluetoothGatt.setCharacteristicNotification()` による、AndroidOSへのNotification受信イベント通知の許可
+        //
+        // 対象キャラクタリスティックからNotificationが届いた場合、
+        // このアプリの `BluetoothGattCallback` にもNotification受信イベントを届けるよう、AndroidOSへ指示するための操作です。
+        //
+        // この操作はBLEフレームワーク内のフラグ制御のためにあるもので、これによるLINBLEとの通信はまだ発生しません。
         var succeeded = gatt.setCharacteristicNotification(dataFromPeripheral, true)
         if (!succeeded) {
             callback.onError(RequestFailureGattOperationException("setCharacteristicNotification"))
             return
         }
 
-        /*
-        2. `BluetoothGatt.writeDescriptor()` による、LINBLEへのNotification発行の許可
-
-        LINBLEと通信し、対象キャラクタリスティックからのNotification発行を実際に許可するための操作です。
-         */
-        dataFromPeripheralCccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-
-        linbleSetupTimeoutDetector = Timer().schedule(operationTimeoutMillis) {
+        // 2. `BluetoothGatt.writeDescriptor()` による、LINBLEへのNotification発行の許可
+        //
+        // LINBLEと通信し、対象キャラクタリスティックからのNotification発行を実際に許可するための操作です。
+        linbleSetupTimeoutDetector = Timer().schedule(OPERATION_TIMEOUT_MILLIS) {
             callback.onError(TimeoutGattOperationException("writeDescriptor"))
         }
 
@@ -539,6 +496,7 @@ class BluetoothCentralController(
             dataFromPeripheralCccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             gatt.writeDescriptor(dataFromPeripheralCccd)
         }
+
         if (!succeeded) {
             linbleSetupTimeoutDetector?.cancel()
 
@@ -568,7 +526,7 @@ class BluetoothCentralController(
             return writeOperationCallback.onError(DisconnectedAfterOnlineException())
         }
 
-        linbleSetupTimeoutDetector = Timer().schedule(operationTimeoutMillis) {
+        linbleSetupTimeoutDetector = Timer().schedule(OPERATION_TIMEOUT_MILLIS) {
             writeOperationCallback.onError(TimeoutGattOperationException("writeCharacteristic"))
         }
 
@@ -598,13 +556,11 @@ class BluetoothCentralController(
     }
 
     private fun retryConnection(target: BluetoothDevice) {
-        /*
-        AndroidのBLE接続APIはかなりの割合で失敗します。
-        リトライ処理は必ず実装するようにしてください。
-
-        ここではOS側で処理が進行している `BluetoothGatt` に `close()` を呼び出して放棄し、
-        再度 `connectGatt()` を呼び出すことで新しく `BluetoothGatt` を作成し直します。
-        */
+        // AndroidのBLE接続APIはかなりの割合で失敗します。
+        // リトライ処理は必ず実装するようにしてください。
+        //
+        // ここではOS側で処理が進行している `BluetoothGatt` に `close()` を呼び出して放棄し、
+        // 再度 `connectGatt()` を呼び出すことで新しく `BluetoothGatt` を作成し直します。
         Log.w(logTag, "retryConnection: target=$target")
 
         bluetoothGatt?.close()

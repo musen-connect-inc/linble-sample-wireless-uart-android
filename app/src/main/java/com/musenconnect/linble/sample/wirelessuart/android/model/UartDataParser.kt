@@ -77,7 +77,7 @@ class UartDataParser(
                 RxPacketFactory.create(rxType, rxPayload)?.let { rxPacket ->
                     debugLogger.logd(
                         logTag,
-                        "parse: rxPacketClass=${rxPacket.javaClass.simpleName}"
+                        "parse: $rxPacket"
                     )
 
                     // 生成オブジェクトを解析結果として上層へ通知

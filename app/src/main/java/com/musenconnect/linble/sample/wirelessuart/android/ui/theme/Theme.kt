@@ -21,7 +21,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun LinbleSampleWirelessUartTheme(
+fun AppTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
